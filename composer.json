@@ -1,0 +1,21 @@
+{
+  "name": "gmars/tp5-rbac",
+  "description": "a library for tp5",
+  "type": "library",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "weiyongqiang",
+      "email": "hayixia606@163.com"
+    }
+  ],
+  "minimum-stability": "dev",
+  "require": {
+    "topthink/think-migration": "*"
+  },
+  "autoload": {
+    "psr-4": {
+      "gmars\\rbac\\": "src"
+    }
+  }
+}
