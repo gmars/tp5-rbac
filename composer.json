@@ -1,6 +1,6 @@
 {
   "name": "gmars/tp5-rbac",
-  "description": "a library for tp5",
+  "description": "这个扩展是基于thinkPHP5框架的RBAC权限验证的扩展。使用本扩展能够快速的将RBAC权限控制器模块引入到自己的系统中。原则上本模块适合于任何PHP框架但是由于使用了thinkPHP5的特性所以使用composer安装到其他框架时需要做相应的修改。模块所需要的扩展库可以通过thinkPHP5的migration来做数据迁移。",
   "type": "library",
   "license": "MIT",
   "authors": [
