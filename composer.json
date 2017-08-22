@@ -11,7 +11,8 @@
   ],
   "minimum-stability": "dev",
   "require": {
-    "topthink/think-migration": "*"
+    "topthink/think-migration": "*",
+    "gmars/tp5-nestedsets": "dev-master"
   },
   "autoload": {
     "psr-4": {
