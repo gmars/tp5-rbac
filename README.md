@@ -23,7 +23,7 @@ composer require gmars/tp5-rbac
         "gmars/tp5-rbac": "dev-master"
     },
 ```
-##数据迁移(可选，可以直接使用包中的gmars_rbac.sql文件导入)
+##`数据迁移(可选，可以直接使用包中的gmars_rbac.sql文件导入)`
 在使用本插件之前需要有rbac锁需要的数据库。在迁移之前如果你的数据库中已有user数据表那么请你备份自己的user数据表后删除。
 
 在你的项目的某个config.php中加入如下配置：
