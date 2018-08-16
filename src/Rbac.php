@@ -42,6 +42,10 @@ class Rbac
      */
     private $userTable = "user";
 
+    /**
+     * @var string 权限缓存前缀
+     */
+    private $_permissionCachePrefix = "_RBAC_PERMISSION_CACHE_";
 
     public function __construct()
     {
@@ -52,6 +56,7 @@ class Rbac
             isset($rbacConfig['user_role']) && $this->userRoleTable = $rbacConfig['user_role'];
             isset($rbacConfig['role_permission']) && $this->rolePermissionTable = $rbacConfig['role_permission'];
             isset($rbacConfig['user']) && $this->userTable = $rbacConfig['user'];
+            isset($rbacConfig['permission_cache_prefix']) && $this->_permissionCachePrefix = $rbacConfig['permission_cache_prefix'];
         }
 
     }
@@ -400,7 +405,12 @@ class Rbac
             }
         }
 
-        cache("permission", $newPermission);
+        //生成唯一缓存名称存入session
+        $cacheName = $this->_permissionCachePrefix . $id . '_';
+        session("permission_name", $cacheName);
+
+        //把权限列表写入缓存
+        cache($cacheName, $newPermission);
         return true;
     }
 
@@ -412,7 +422,13 @@ class Rbac
      */
     public function can($path)
     {
-        $permissionList = cache("permission");
+        //获取session中的缓存名
+        $cacheName = session("permission_name");
+        if (empty($cacheName)) {
+            throw new Exception('获取权限列表时出错');
+        }
+
+        $permissionList = cache($cacheName);
         if (empty($permissionList)) {
             throw new Exception('你还没有登录或在登录后没有获取权限缓存');
         }
