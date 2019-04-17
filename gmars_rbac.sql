@@ -1,8 +1,19 @@
 SET FOREIGN_KEY_CHECKS=0;
+DROP TABLE IF EXISTS `###permission_category`;
+CREATE TABLE `###permission_category` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `name` varchar(50) COLLATE utf8mb4_general_ci NOT NULL DEFAULT '' COMMENT '权限分组名称',
+  `description` varchar(200) COLLATE utf8mb4_general_ci NOT NULL DEFAULT '' COMMENT '权限分组描述',
+  `status` smallint(4) unsigned NOT NULL DEFAULT '1' COMMENT '权限分组状态1有效2无效',
+  `create_time` int(10) unsigned NOT NULL DEFAULT '0' COMMENT '权限分组创建时间',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 DROP TABLE IF EXISTS `###permission`;
 CREATE TABLE `###permission` (
   `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
   `name` varchar(50) NOT NULL DEFAULT '' COMMENT '权限节点名称',
+  `type` smallint(4) unsigned NOT NULL DEFAULT '0' COMMENT '权限类型1api权限2前路由权限',
+  `category_id` int(11) unsigned NOT NULL DEFAULT '0' COMMENT '权限分组id',
   `path` varchar(100) NOT NULL DEFAULT '' COMMENT '权限路径',
   `path_id` varchar(100) NOT NULL DEFAULT '' COMMENT '路径唯一编码',
   `description` varchar(200) NOT NULL DEFAULT '' COMMENT '描述信息',

@@ -12,51 +12,54 @@ namespace gmars\rbac;
 
 
 use gmars\nestedsets\NestedSets;
+use gmars\rbac\model\Permission;
+use gmars\rbac\model\PermissionCategory;
+use gmars\rbac\model\Role;
+use gmars\rbac\model\UserRole;
 use think\Db;
+use think\db\Query;
+use think\db\Where;
 use think\Exception;
+use think\facade\Cache;
+use think\facade\Request;
+use think\facade\Session;
 
 class Rbac
 {
-    /**
-     * @var string 权限表
-     */
-    private $permissionTable = "permission";
+
 
     /**
-     * @var string 角色表
+     * 认证方式   service方式和jwt方式
+     * @var string
      */
-    private $roleTable = "role";
+    private $type = "service";
 
     /**
-     * @var string 用户角色对应表
+     * rbac存放的数据库
+     * @var string
      */
-    private $userRoleTable = "user_role";
+    private $db = '';
 
     /**
-     * @var string 角色权限对应表
+     * jwt token生成加密密钥
+     * @var string
      */
-    private $rolePermissionTable = "role_permission";
+    private $saltToken = 'asdfqet9#$@#GS#$%080asdfaasdg';
 
     /**
-     * @var string 用户表
+     * token名称
+     * @var string
      */
-    private $userTable = "user";
-
-    /**
-     * @var string 权限缓存前缀
-     */
-    private $_permissionCachePrefix = "_RBAC_PERMISSION_CACHE_";
+    private $tokenKey = 'Authorization';
 
     public function __construct()
     {
         $rbacConfig = config('rbac');
         if (!empty($rbacConfig)) {
-            isset($rbacConfig['permission']) && $this->permissionTable = $rbacConfig['permission'];
-            isset($rbacConfig['role']) && $this->roleTable = $rbacConfig['role'];
-            isset($rbacConfig['user_role']) && $this->userRoleTable = $rbacConfig['user_role'];
-            isset($rbacConfig['role_permission']) && $this->rolePermissionTable = $rbacConfig['role_permission'];
-            isset($rbacConfig['user']) && $this->userTable = $rbacConfig['user'];
-            isset($rbacConfig['permission_cache_prefix']) && $this->_permissionCachePrefix = $rbacConfig['permission_cache_prefix'];
+            isset($rbacConfig['db']) && $this->db = $rbacConfig['db'];
+            isset($rbacConfig['type']) && $this->type = $rbacConfig['type'];
+            isset($rbacConfig['salt_token']) && $this->saltToken = $rbacConfig['salt_token'];
+            isset($rbacConfig['token_key']) && $this->tokenKey = $rbacConfig['token_key'];
         }
 
     }
@@ -72,231 +75,189 @@ class Rbac
     }
 
     /**
-     * @param $config
      * 配置参数
+     * @param string $db
      */
-    public function setConfig($config)
+    public function setDb($db = '')
     {
-        if (!empty($config) && is_array($config)) {
-            isset($config['permission']) && $this->permissionTable = $config['permission'];
-            isset($config['role']) && $this->roleTable = $config['role'];
-            isset($config['user_role']) && $this->userRoleTable = $config['user_role'];
-            isset($config['role_permission']) && $this->rolePermissionTable = $config['role_permission'];
-            isset($config['user']) && $this->userTable = $config['user'];
-        }
+       $this->db = $db;
     }
 
+
     /**
-     * @param $data
-     * @return int|string
      * 创建权限
+     * @param array $data
+     * @return Permission
+     * @throws Exception
      */
     public function createPermission(array $data = [])
     {
-        if (empty($data) || !is_array($data)) {
-            throw new Exception('传入参数错误');
+        $model = new Permission($this->db);
+        $model->data($data);
+        try{
+            $res = $model->savePermission();
+            return $res;
+        } catch (Exception $e) {
+            throw new Exception($e->getMessage());
         }
-
-        return Db::name($this->permissionTable)
-            ->insert($data);
     }
 
     /**
+     * 修改权限数据(版本兼容暂时保留建议使用createPermission方法)
      * @param array $data
      * @param null $id
-     * @return bool
+     * @return Permission
      * @throws Exception
-     * 修改权限数据
      */
     public function editPermission(array $data = [], $id = null)
     {
-        if (empty($id) && !is_array($data)) {
-            throw new Exception('参数错误');
+        if (!empty($id)) {
+            $data['id'] = $id;
         }
-
-        $dbObj = Db::name($this->permissionTable);
-
-        if (empty($id)) {
-            if (!isset($data[$dbObj->getPk()])) {
-                throw new Exception('不传id时data中必须包含要修改数据的主键');
-            }
-
-            if ($dbObj->update($data) === false) {
-                return false;
-            }
-
-            return true;
+        try{
+            return $this->createPermission($data);
+        } catch (Exception $e) {
+            throw new Exception($e->getMessage());
         }
-
-        if (isset($data[$dbObj->getPk()])) {
-            unset($data[$dbObj->getPk()]);
-        }
-
-        if ($dbObj->where($dbObj->getPk(), $id)
-            ->update($data) === false) {
-            return false;
-        }
-
-        return true;
     }
 
     /**
+     * 根据主键删除权限(支持多主键用数组的方式传入)
      * @param int $id
      * @return bool
      * @throws Exception
-     * 根据主键删除权限
      */
     public function delPermission($id = 0)
     {
-        if (empty($id)) {
-            throw new Exception('参数错误');
+        $model = new Permission($this->db);
+        try {
+            return $model->delPermission($id);
+        } catch (Exception $e) {
+            throw new Exception($e->getMessage());
         }
-
-        if (Db::name($this->permissionTable)->delete($id) === false) {
-            return false;
-        }
-
-        return true;
     }
 
     /**
+     * 根据条件删除权限条件请参考tp5 where条件的写法
      * @param $condition
      * @return bool
      * @throws Exception
-     * 根据条件批量删除权限，本操作中必须传入符合tp5条件的语句
+     * @throws \think\exception\PDOException
      */
     public function delPermissionBatch($condition)
     {
-        if (!is_array($condition) || !is_string($condition)) {
-            throw new Exception('请按照tp5条件语句的方式传入字符串或数组的条件');
+        $model = new Permission($this->db);
+        if ($model->where($condition)->delete() === false) {
+            throw new Exception('批量删除数据出错');
         }
-
-        if (Db::name($this->permissionTable)->where($condition)->delete() === false) {
-            return false;
-        }
-
         return true;
     }
 
     /**
+     * 根据主键/标准条件来查询权限
      * @param $condition
-     * @return array|false|\PDOStatement|string|\think\Collection|\think\Model
-     * 传入的条件当为主键时直接按照主键查询，如果为条件语句必须符合tp5的where条件写法
+     * @return array|\PDOStatement|string|\think\Collection|\think\Model|null
+     * @throws \think\db\exception\DataNotFoundException
+     * @throws \think\db\exception\ModelNotFoundException
+     * @throws \think\exception\DbException
      */
     public function getPermission($condition)
     {
-        $dbObj = Db::name($this->permissionTable);
+        $model = new Permission($this->db);
         if (is_numeric($condition)) {
-            return $dbObj->where($dbObj->getPk(), $condition)->find();
+            return $model->where('id', $condition)->find();
         }
 
-        return $dbObj->where($condition)->select();
+        return $model->where($condition)->select();
 
     }
 
     /**
+     * 编辑权限分组
      * @param array $data
-     * @return int|string
-     * @throws Exception
-     * 添加角色
-     */
-    public function createRole(array $data = [])
-    {
-        if (empty($data)) {
-            throw new Exception('参数错误');
-        }
-
-        $parentId = isset($data['parent_id'])? $data['parent_id']:0;
-        unset($data['parent_id']);
-        $parent = $this->getRole($parentId);
-        if ($parentId != 0 && empty($parent)) {
-            throw new Exception('父角色不存在');
-        }
-
-        $nestedObj = new NestedSets($this->roleTable);
-        return $nestedObj->insert($parentId, $data);
-
-    }
-
-    /**
-     * @param $id
-     * @param $parentId
-     * @return bool
-     * 将主键为id的角色移动到主键为parentId的角色下
-     */
-    public function moveRole($id, $parentId)
-    {
-        $nestedObj = new NestedSets($this->roleTable);
-        return $nestedObj->moveUnder($id, $parentId);
-    }
-
-    /**
-     * 修改角色数据
-     * @param $data
-     * @return int|string
+     * @return PermissionCategory
      * @throws Exception
      */
-    public function editRole($data)
+    public function savePermissionCategory(array $data = [])
     {
-        $dbObj = Db::name($this->roleTable);
-
-        if (!isset($data[$dbObj->getPk()])) {
-            throw new Exception('数据中必须包含主键');
+        $model = new PermissionCategory($this->db);
+        $model->data($data);
+        try{
+            $res = $model->saveCategory();
+            return $res;
+        } catch (Exception $e) {
+            throw new Exception($e->getMessage());
         }
-
-        return $dbObj->update($data) === false? false:true;
     }
 
     /**
-     * 根据id获取角色
-     * @param $id
-     * @param bool $child 为true时返回该角色以及所有的子角色
-     * @return array|false|\PDOStatement|string|\think\Collection|\think\Model
-     */
-    public function getRole($id, $child = false)
-    {
-        $nestedObj = new NestedSets($this->roleTable);
-        if ($child) {
-            return $nestedObj->getPath($id);
-        }else{
-            $dbObj = Db::name($this->roleTable);
-            return $dbObj->where($dbObj->getPk(), $id)->find();
-        }
-
-    }
-
-    /**
-     * @param $id
+     * 根据主键删除权限分组(支持多主键用数组的方式传入)
+     * @param int $id
      * @return bool
      * @throws Exception
-     * 删除角色同时将角色权限对应关系删除
+     */
+    public function delPermissionCategory($id = 0)
+    {
+        $model = new PermissionCategory($this->db);
+        try {
+            $res = $model->delCategory($id);
+            return $res;
+        } catch (Exception $e) {
+            throw new Exception($e->getMessage());
+        }
+    }
+
+    /**
+     * 编辑角色
+     * @param array $data
+     * @param string $permissionIds
+     * @return Role
+     * @throws Exception
+     */
+    public function createRole(array $data = [], $permissionIds = '')
+    {
+        $model = new Role($this->db);
+        $model->data($data);
+        try{
+            $res = $model->saveRole($permissionIds);
+            return $res;
+        } catch (Exception $e) {
+            throw new Exception($e->getMessage());
+        }
+
+    }
+
+    /**
+     * 根据id或标准条件获取角色
+     * @param $condition
+     * @return array|\PDOStatement|string|\think\Collection|\think\Model|null
+     * @throws \think\db\exception\DataNotFoundException
+     * @throws \think\db\exception\ModelNotFoundException
+     * @throws \think\exception\DbException
+     */
+    public function getRole($condition)
+    {
+        $model = new Role($this->db);
+        if (is_numeric($condition)) {
+            return $model->where('id', $condition)->find();
+        }
+        return $model->where($condition)->select();
+    }
+
+    /**
+     * @param $id
+     * @return bool
+     * @throws Exception
+     * 删除角色同时将角色权限对应关系删除(注意，会删除角色分配的权限关联数据)
      */
     public function delRole($id)
     {
-        $data = $this->getRole($id);
-        if (empty($data)) {
-            throw new Exception('要删除的角色不存在');
-        }
-
-        Db::startTrans();
-
-        try{
-            $nestedObj = new NestedSets($this->roleTable);
-            if ($nestedObj->delete($id) === false) {
-                Db::rollback();
-                return false;
-            }
-
-            if (Db::name($this->rolePermissionTable)->where('role_id', $id)->delete() === false) {
-                Db::rollback();
-                return false;
-            }
-
-            Db::commit();
-            return true;
-        }catch (Exception $e){
-            Db::rollback();
-            return false;
+        $model = new Role($this->db);
+        try {
+            $res = $model->delRole($id);
+            return $res;
+        } catch (Exception $e) {
+            throw new Exception($e->getMessage());
         }
     }
 
@@ -319,58 +280,29 @@ class Rbac
         {
             $userRole [] = ['user_id' => $userId, 'role_id' => $v];
         }
-
-        return Db::name($this->userRoleTable)->insertAll($userRole);
+        $model = new UserRole($this->db);
+        if ($model->saveAll($userRole) === false) {
+            throw new Exception('给用户分配角色出错');
+        }
+        return ;
     }
 
     /**
-     * @param $roleId
-     * @param array $permission
-     * @return int|string
-     * @throws Exception
-     * 为角色分配权限
-     */
-    public function assignRolePermission($roleId, array $permission = [])
-    {
-        if (empty($roleId) || empty($permission)) {
-            throw new Exception('参数错误');
-        }
-
-        $rolePermission = [];
-        foreach ($permission as $v)
-        {
-            $rolePermission [] = ['role_id' => $roleId, 'permission_id' => $v];
-        }
-
-        return Db::name($this->rolePermissionTable)->insertAll($rolePermission);
-    }
-
-    /**
+     * 删除用户角色
      * @param $id
      * @return bool
      * @throws Exception
-     * 删除用户[同时会删除用户的所有角色]
+     * @throws \think\exception\PDOException
      */
-    public function delUser($id)
+    public function delUserRole($id)
     {
         if (empty($id)) {
             throw new Exception('参数错误');
         }
-
-        Db::startTrans();
-
-        $dbObj = Db::name($this->userTable);
-        if ($dbObj->where($dbObj->getPk(), $id)->delete() === false) {
-            Db::rollback();
-            return false;
+        $model = new UserRole($this->db);
+        if ($model->where('user_id', $id)->delete() === false) {
+            throw new Exception('删除用户角色出错');
         }
-
-        if (Db::name($this->userRoleTable)->where('user_id', $id)->delete() === false) {
-            Db::rollback();
-            return false;
-        }
-
-        Db::commit();
         return true;
     }
 
@@ -390,38 +322,24 @@ class Rbac
     }
 
     /**
+     * 获取用户权限并缓存
      * @param $id
-     * @return bool
+     * @param int $timeOut
+     * @return array|bool|mixed|\PDOStatement|string|\think\Collection
      * @throws Exception
-     * 查询出该用户的所有权限并存入缓存
+     * @throws \think\db\exception\DataNotFoundException
+     * @throws \think\db\exception\ModelNotFoundException
+     * @throws \think\exception\DbException
      */
-    public function cachePermission($id)
+    public function cachePermission($id, $timeOut = 3600)
     {
         if (empty($id)) {
             throw new Exception('参数错误');
         }
 
-        $permission = Db::name($this->permissionTable)
-            ->alias('p')
-            ->join("{$this->rolePermissionTable} rp", "p.id = rp.permission_id")
-            ->join("{$this->userRoleTable} ur", "rp.role_id = ur.role_id")
-            ->where("ur.user_id = {$id}")->select();
-
-        $newPermission = [];
-        if (!empty($permission)) {
-            foreach ($permission as $k=>$v)
-            {
-                $newPermission[$v['path']] = $v;
-            }
-        }
-
-        //生成唯一缓存名称存入session
-        $cacheName = $this->_permissionCachePrefix . $id . '_';
-        session("permission_name", $cacheName);
-
-        //把权限列表写入缓存
-        cache($cacheName, $newPermission);
-        return true;
+        $model = new Permission($this->db);
+        $permission = $model->userPermission($id, $timeOut);
+        return $permission;
     }
 
     /**
@@ -432,22 +350,178 @@ class Rbac
      */
     public function can($path)
     {
-        //获取session中的缓存名
-        $cacheName = session("permission_name");
-        if (empty($cacheName)) {
-            throw new Exception('获取权限列表时出错');
+        if ($this->type == 'jwt') {
+            $token = Request::header($this->tokenKey);
+            if (empty($token)) {
+                throw new Exception('未获取到token');
+            }
+            $permissionList = Cache::get($token);
+        } else {
+            //获取session中的缓存名
+            $cacheName = Session::get('gmars_rbac_permission_name');
+            if (empty($cacheName)) {
+                throw new Exception('未查询到登录信息');
+            }
+            $permissionList = Cache::get($cacheName);
         }
 
-        $permissionList = cache($cacheName);
         if (empty($permissionList)) {
-            throw new Exception('你还没有登录或在登录后没有获取权限缓存');
+            throw new Exception('您的登录信息已过期请重新登录');
         }
 
         if (isset($permissionList[$path]) && !empty($permissionList[$path])) {
             return true;
         }
-
         return false;
+    }
+
+    /**
+     * 生成jwt的token
+     * @param $userId
+     * @param int $timeOut
+     * @param string $prefix
+     * @return array
+     * @throws \think\db\exception\DataNotFoundException
+     * @throws \think\db\exception\ModelNotFoundException
+     * @throws \think\exception\DbException
+     */
+    public function generateToken($userId, $timeOut = 7200, $prefix = '')
+    {
+        $token = md5($prefix . $this->randCode(32) . $this->saltToken . time());
+        $freshTOken = md5($prefix . $this->randCode(32) . $this->saltToken . time());
+        $permissionModel = new Permission($this->db);
+        $permission = $permissionModel->getPermissionByUserId($userId);
+        //无权限时为登录验证用
+        if (!empty($permission)) {
+            $newPermission = [];
+            if (!empty($permission)) {
+                foreach ($permission as $k=>$v)
+                {
+                    $newPermission[$v['path']] = $v;
+                }
+            }
+            Cache::set($token, $newPermission, $timeOut);
+        } else {
+            //权限为空时token仅仅用作登录身份验证
+            Cache::set($token, '', $timeOut);
+        }
+        Cache::set($freshTOken, $token, $timeOut);
+        return [
+            'token' => $token,
+            'refresh_token' => $freshTOken,
+            'expire' => $timeOut
+        ];
+    }
+
+    /**
+     * 刷新token
+     * @param $refreshToken
+     * @param int $timeOut
+     * @param string $prefix
+     * @return array
+     * @throws Exception
+     */
+    public function refreshToken($refreshToken, $timeOut = 7200, $prefix = '')
+    {
+        $token = Cache::get($refreshToken);
+        if (empty($token)) {
+            throw new Exception('refresh_token已经过期');
+        }
+        $permission = Cache::get($token);
+        if (empty($permission)) {
+            throw new Exception('token已经过期');
+        }
+        $token = md5($prefix . $this->randCode(32) . $this->saltToken . time());
+        $freshTOken = md5($prefix . $this->randCode(32) . $this->saltToken . time());
+        Cache::set($token, $permission, $timeOut);
+        Cache::set($freshTOken, $token);
+        return [
+            'token' => $token,
+            'refresh_token' => $freshTOken,
+            'expire' => $timeOut
+        ];
+
+    }
+
+    /**
+     * 生成随机码
+     * @param int $length
+     * @param string $type string|mix|number|special
+     * @return string
+     */
+    private function randCode($length = 6, $type = 'mix')
+    {
+        $number = '0123456789';
+        $seed = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        $specialChar = '!@#$%^&*()_+[]|';
+        $randRes = "";
+        switch ($type) {
+            case 'string':
+                for ($i = 0; $i < $length; $i++)
+                {
+                    $randomInt = rand(0, strlen($seed) - 1);
+                    $randRes .= $seed{$randomInt};
+                }
+                break;
+            case 'number':
+                for ($i = 0; $i < $length; $i++)
+                {
+                    $randomInt = rand(0, strlen($number) - 1);
+                    $randRes .= $number{$randomInt};
+                }
+                break;
+            case 'mix':
+                $mix = $number . $seed;
+                for ($i = 0; $i < $length; $i++)
+                {
+                    $randomInt = rand(0, strlen($mix) - 1);
+                    $randRes .= $mix{$randomInt};
+                }
+                break;
+            case 'special':
+                $special = $number . $seed . $specialChar;
+                for ($i = 0; $i < $length; $i++)
+                {
+                    $randomInt = rand(0, strlen($special) - 1);
+                    $randRes .= $special{$randomInt};
+                }
+                break;
+        }
+        return $randRes;
+    }
+
+    /**
+     * @param $roleId
+     * @param array $permission
+     * @return int|string
+     * @throws Exception
+     * 为角色分配权限
+     */
+    public function assignRolePermission($roleId, array $permission = [])
+    {
+        throw new Exception('该方法已经弃用，请在创建角色时分配权限，调用createRole方法。如果你得项目中依旧想使用此方法请安装v1.3.1版本');
+    }
+
+    /**
+     * 移动角色
+     * @param $id
+     * @param $parentId
+     * @throws Exception
+     */
+    public function moveRole($id, $parentId)
+    {
+        throw new Exception('新版本中已经弃用角色的可继承关系，请使用用户可分配多个角色替代，如果你得项目中依旧想使用此方法请安装v1.3.1版本');
+    }
+
+    /**
+     * 修改角色数据
+     * @param $data
+     * @return int|string
+     * @throws Exception
+     */
+    public function editRole($data)
+    {
+        throw new Exception('请使用createRole方法在data中传入主键，如果你得项目中依旧想使用此方法请安装v1.3.1版本');
     }
 
 

@@ -10,6 +10,7 @@ namespace gmars\rbac;
 
 
 use think\Db;
+use think\facade\Env;
 
 class CreateTable
 {
@@ -18,16 +19,19 @@ class CreateTable
 
     public function __construct()
     {
-        $this->_lockFile = dirname(__DIR__) . '/sql.lock';
+        $this->_lockFile = Env::get('root_path') . 'runtime/rbac_sql.lock';
         $this->_sqlFile = dirname(__DIR__) . '/gmars_rbac.sql';
     }
 
     /**
      * 创建数据表
-     * @param string $prefix
+     * @param string $db
      */
-    public function create($prefix = '')
+    public function create($db = '')
     {
+        $dbConfig = Db::getConfig();
+        $prefix = $db == ''? $dbConfig['prefix'] : $dbConfig[$db]['prefix'];
+
         if (file_exists($this->_lockFile)) {
             echo "<b style='color:red'>数据库创建操作被锁定，请删除[{$this->_lockFile}]文件后重试</b>";
             exit;
@@ -37,7 +41,7 @@ class CreateTable
             echo '执行sql语句出错，请检查配置';
             exit;
         }
-        echo '执行成功';
+        echo '执行成功,如非必要请不要解锁后再次执行，重复执行会清空原有rbac表中的数据';
         $this->_writeLock();
         exit;
     }
