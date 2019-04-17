@@ -11,12 +11,10 @@
   ],
   "minimum-stability": "dev",
   "require": {
-    "topthink/think-migration": "*",
-    "gmars/tp5-nestedsets": "dev-master"
   },
   "autoload": {
     "psr-4": {
-      "gmars\\rbac\\": "src"
+      "gmars\\rbac\\": "src/"
     }
   }
 }

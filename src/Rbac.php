@@ -62,6 +62,16 @@ class Rbac
     }
 
     /**
+     * 生成所需的数据表
+     * @param string $prefix
+     */
+    public function createTable($prefix = '')
+    {
+        $createTable = new CreateTable();
+        $createTable->create($prefix);
+    }
+
+    /**
      * @param $config
      * 配置参数
      */
