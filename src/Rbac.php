@@ -281,16 +281,22 @@ class Rbac
         if (empty($userId) || empty($role)) {
             throw new Exception('参数错误');
         }
-
+        $model = new UserRole($this->db);
+        $model->startTrans();
+        if ($model->where('user_id', $userId)->delete() === false) {
+            $model->rollback();
+            throw new Exception('删除用户原有角色出错');
+        }
         $userRole = [];
         foreach ($role as $v)
         {
             $userRole [] = ['user_id' => $userId, 'role_id' => $v];
         }
-        $model = new UserRole($this->db);
         if ($model->saveAll($userRole) === false) {
+            $model->rollback();
             throw new Exception('给用户分配角色出错');
         }
+        $model->commit();
         return ;
     }
 
