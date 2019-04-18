@@ -66,12 +66,12 @@ class Rbac
 
     /**
      * 生成所需的数据表
-     * @param string $prefix
+     * @param string $db
      */
-    public function createTable($prefix = '')
+    public function createTable($db = '')
     {
         $createTable = new CreateTable();
-        $createTable->create($prefix);
+        $createTable->create($db);
     }
 
     /**
@@ -164,12 +164,7 @@ class Rbac
     public function getPermission($condition)
     {
         $model = new Permission($this->db);
-        if (is_numeric($condition)) {
-            return $model->where('id', $condition)->find();
-        }
-
-        return $model->where($condition)->select();
-
+        return $model->getPermission($condition);
     }
 
     /**
@@ -208,6 +203,20 @@ class Rbac
     }
 
     /**
+     * 获取权限分组
+     * @param $where
+     * @return array|\PDOStatement|string|\think\Collection|\think\Model|null
+     * @throws \think\db\exception\DataNotFoundException
+     * @throws \think\db\exception\ModelNotFoundException
+     * @throws \think\exception\DbException
+     */
+    public function getPermissionCategory($where)
+    {
+        $model = new PermissionCategory($this->db);
+        return $model->getCategory($where);
+    }
+
+    /**
      * 编辑角色
      * @param array $data
      * @param string $permissionIds
@@ -230,18 +239,16 @@ class Rbac
     /**
      * 根据id或标准条件获取角色
      * @param $condition
+     * @param bool $withPermissionId
      * @return array|\PDOStatement|string|\think\Collection|\think\Model|null
      * @throws \think\db\exception\DataNotFoundException
      * @throws \think\db\exception\ModelNotFoundException
      * @throws \think\exception\DbException
      */
-    public function getRole($condition)
+    public function getRole($condition, $withPermissionId = true)
     {
         $model = new Role($this->db);
-        if (is_numeric($condition)) {
-            return $model->where('id', $condition)->find();
-        }
-        return $model->where($condition)->select();
+        return $model->getRole($condition, $withPermissionId);
     }
 
     /**
@@ -336,7 +343,6 @@ class Rbac
         if (empty($id)) {
             throw new Exception('参数错误');
         }
-
         $model = new Permission($this->db);
         $permission = $model->userPermission($id, $timeOut);
         return $permission;

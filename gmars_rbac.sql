@@ -26,13 +26,9 @@ DROP TABLE IF EXISTS `###role`;
 CREATE TABLE `###role` (
   `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
   `name` varchar(50) NOT NULL DEFAULT '' COMMENT '角色名',
-  `parent_id` int(11) unsigned NOT NULL DEFAULT '0' COMMENT '父级id（一般不建议角色的继承）',
   `description` varchar(200) NOT NULL DEFAULT '' COMMENT '角色描述',
   `status` smallint(4) unsigned NOT NULL DEFAULT '0' COMMENT '状态1正常0未启用',
   `sort_num` int(11) unsigned NOT NULL DEFAULT '0' COMMENT '排序值',
-  `left_key` int(11) unsigned NOT NULL DEFAULT '0' COMMENT '左值',
-  `right_key` int(11) unsigned NOT NULL DEFAULT '0' COMMENT '右值',
-  `level` int(11) unsigned NOT NULL DEFAULT '0' COMMENT '层级',
   PRIMARY KEY (`id`),
   KEY `idx_role` (`status`,`left_key`,`right_key`,`level`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='角色';

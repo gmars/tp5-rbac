@@ -9,6 +9,7 @@
 namespace gmars\rbac\model;
 
 
+use think\Db;
 use think\Exception;
 
 class Role extends Base
@@ -101,6 +102,53 @@ class Role extends Base
         }
         $this->commit();
         return true;
+    }
+
+    /**
+     * 获取角色列表
+     * @param $condition
+     * @param bool $withPermissionId
+     * @return array|\PDOStatement|string|\think\Collection|\think\Model|null
+     * @throws \think\db\exception\DataNotFoundException
+     * @throws \think\db\exception\ModelNotFoundException
+     * @throws \think\exception\DbException
+     */
+    public function getRole($condition, $withPermissionId = false)
+    {
+        $model = Db::name('role')->setConnection($this->getConnection());
+        $where = [];
+        if (is_array($condition)) {
+            $where = $condition;
+        } else {
+            $condition = (int)$condition;
+            if (is_numeric($condition) && $condition > 0) {
+                $role = $model->where('id', $condition)->find();
+                if (!empty($role) && $withPermissionId) {
+                    $role['permission_ids'] = Db::name('role_permission')->setConnection($this->getConnection())
+                        ->where('role_id', $condition)->column('permission_id');
+                }
+                return $role;
+            }
+        }
+        $role = Db::name('role')->setConnection($this->getConnection())
+            ->where($where)->select();
+        if (!empty($role) && $withPermissionId) {
+            $permission = Db::name('role_permission')->setConnection($this->getConnection())
+                ->where('role_id', 'IN', array_column($role, 'id'))->select();
+            $roleIdIndexer = [];
+            if (!empty($permission)) {
+                foreach ($permission as $v)
+                {
+                    $roleIdIndexer[$v['role_id']][] = $v['permission_id'];
+                }
+            }
+            foreach ($role as &$v)
+            {
+                $v['permission_ids'] = isset($roleIdIndexer[$v['id']])? $roleIdIndexer[$v['id']] : [];
+                unset($v);
+            }
+        }
+        return $role;
     }
 
 }

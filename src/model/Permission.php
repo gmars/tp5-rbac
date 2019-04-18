@@ -10,6 +10,7 @@ namespace gmars\rbac\model;
 
 
 
+use think\Db;
 use think\Exception;
 use think\facade\Cache;
 use think\facade\Session;
@@ -109,7 +110,7 @@ class Permission extends Base
         }
         Cache::set($this->_permissionCachePrefix . $userId, $newPermission, $timeOut);
         Session::set('gmars_rbac_permission_name', $this->_permissionCachePrefix . $userId);
-        return $permission;
+        return $newPermission;
     }
 
     /**
@@ -122,10 +123,29 @@ class Permission extends Base
      */
     public function getPermissionByUserId($userId)
     {
-        $permission = $this->alias('p')
-            ->join(['role_permission' => 'rp'], 'p.id = rp.permission_id')
-            ->join(['user_role' => 'ur'], 'rp.role_id = ur.role_id')
+        $prefix = $this->getConfig('prefix');
+        $permission = Db::name('permission')->setConnection($this->getConnection())->alias('p')
+            ->join(["{$prefix}role_permission" => 'rp'], 'p.id = rp.permission_id')
+            ->join(["{$prefix}user_role" => 'ur'], 'rp.role_id = ur.role_id')
             ->where('ur.user_id', $userId)->select();
         return $permission;
+    }
+
+    /**
+     * 获取权限节点
+     * @param $condition
+     * @return array|\PDOStatement|string|\think\Collection|\think\Model|null
+     * @throws \think\db\exception\DataNotFoundException
+     * @throws \think\db\exception\ModelNotFoundException
+     * @throws \think\exception\DbException
+     */
+    public function getPermission($condition)
+    {
+        $model = Db::name('permission')->setConnection($this->getConnection());
+        if (is_numeric($condition)) {
+           return $model->where('id', $condition)->find();
+        } else {
+            return $model->where($condition)->select();
+        }
     }
 }
