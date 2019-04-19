@@ -320,21 +320,6 @@ class Rbac
     }
 
     /**
-     * @param array $data
-     * @return int|string
-     * @throws Exception
-     * 创建用户[建议在自己系统的业务逻辑中实现]
-     */
-    public function createUser(array $data = [])
-    {
-        if (empty($data)) {
-            throw new Exception('参数错误');
-        }
-
-        return Db::name($this->userTable)->insert($data);
-    }
-
-    /**
      * 获取用户权限并缓存
      * @param $id
      * @param int $timeOut
@@ -535,6 +520,16 @@ class Rbac
     {
         throw new Exception('请使用createRole方法在data中传入主键，如果你得项目中依旧想使用此方法请安装v1.3.1版本');
     }
-
+    
+    /**
+     * @param array $data
+     * @return int|string
+     * @throws Exception
+     * 创建用户[建议在自己系统的业务逻辑中实现]
+     */
+    public function createUser(array $data = [])
+    {
+        throw new Exception('该方法在新版本中已经废弃，因为用户表的差异比较大请大家自行实现');
+    }
 
 }
