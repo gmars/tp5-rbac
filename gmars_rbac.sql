@@ -30,7 +30,7 @@ CREATE TABLE `###role` (
   `status` smallint(4) unsigned NOT NULL DEFAULT '0' COMMENT '状态1正常0未启用',
   `sort_num` int(11) unsigned NOT NULL DEFAULT '0' COMMENT '排序值',
   PRIMARY KEY (`id`),
-  KEY `idx_role` (`status`,`left_key`,`right_key`,`level`)
+  KEY `idx_role` (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='角色';
 DROP TABLE IF EXISTS `###role_permission`;
 CREATE TABLE `###role_permission` (
