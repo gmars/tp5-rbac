@@ -7,7 +7,7 @@ CREATE TABLE `###permission_category` (
   `status` smallint(4) unsigned NOT NULL DEFAULT '1' COMMENT '权限分组状态1有效2无效',
   `create_time` int(10) unsigned NOT NULL DEFAULT '0' COMMENT '权限分组创建时间',
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 DROP TABLE IF EXISTS `###permission`;
 CREATE TABLE `###permission` (
   `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
