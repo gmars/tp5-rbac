@@ -54,7 +54,7 @@ class CreateTable
     private function _generateSql($prefix = '')
     {
         $sql = $this->_loadSqlFile();
-        $prefix = empty($prefix)? '' : $prefix . '_';
+        $prefix = empty($prefix)? '' : $prefix;
         $sql = str_replace('###', $prefix, $sql);
         $sqlArr = explode(';', $sql);
         if (Db::batchQuery($sqlArr) === false) {
