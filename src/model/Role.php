@@ -36,13 +36,18 @@ class Role extends Base
             $this->isUpdate(true);
         }
         $this->startTrans();
-        $this->save();
+        if ($this->save() === false) {
+            $this->rollback();
+            throw new Exception('写入角色时出错');
+        }
         //如果有权限的情况下
         if (empty($permissionIds)) {
+            $this->commit();
             return $this;
         }
         $permissionIdsArr = array_filter(explode(',', $permissionIds));
         if (empty($permissionIdsArr)) {
+            $this->commit();
             return $this;
         }
         //删除原有权限

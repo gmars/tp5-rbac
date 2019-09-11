@@ -18,7 +18,7 @@ class Base extends Model
     public function __construct($db = '', $data = [])
     {
         parent::__construct($data);
-        $this->connection = $db;
+        $this->connection = empty($db)? config('rbac')['db'] : $db;
     }
 
 }
